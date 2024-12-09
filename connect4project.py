@@ -12,8 +12,8 @@ import random
 
 ROWS = 6
 COLS = 7
-PLAYER_PIECE = 1
-AI_PIECE = 2
+playerPiece = 1
+AIpiece = 2
 
 
 def calculate_move(message):
@@ -62,9 +62,9 @@ def calculate_move(message):
         """Scores the board based on how favorable it is for the AI."""
         score = 0
 
-        center_col = [board[r][COLS // 2] for r in range(ROWS)]
-        center_count = center_col.count(piece)
-        score += center_count * 6
+        centerCol = [board[r][COLS // 2] for r in range(ROWS)]
+        centerCount = centerCol.count(piece)
+        score += centerCount * 6
 
         # Score horizontal
         for r in range(ROWS):
@@ -93,7 +93,7 @@ def calculate_move(message):
         return score
 
     def evaluate_window(window, piece):
-        opponent_piece = PLAYER_PIECE if piece == AI_PIECE else AI_PIECE
+        opponent_piece = playerPiece if piece == AIpiece else AIpiece
         score = 0
 
         if window.count(piece) == 4:
@@ -108,26 +108,26 @@ def calculate_move(message):
 
         return score
 
-    def is_terminal_node(board):
-        return winning_move(board, PLAYER_PIECE) or winning_move(board, AI_PIECE) or not get_valid_locations(board)
+    def checkGameEnd(board):
+        return winning_move(board, playerPiece) or winning_move(board, AIpiece) or not get_valid_locations(board)
 
     def get_valid_locations(board):
         return [c for c in range(COLS) if is_valid_location(board, c)]
 
-    def minimax(board, depth, alpha, beta, maximizing_player):
+    def minimax(board, depth, a, b, maximizing_player):
         valid_locations = get_valid_locations(board)
-        is_terminal = is_terminal_node(board)
+        endGame = checkGameEnd(board)
 
-        if depth == 0 or is_terminal:
-            if is_terminal:
-                if winning_move(board, AI_PIECE):
+        if depth == 0 or endGame:
+            if endGame:
+                if winning_move(board, AIpiece):
                     return None, 10000000
-                elif winning_move(board, PLAYER_PIECE):
+                elif winning_move(board, playerPiece):
                     return None, -10000000
                 else:
                     return None, 0
             else:
-                return None, score_position(board, AI_PIECE)
+                return None, score_position(board, AIpiece)
 
         if maximizing_player:
             value = -math.inf
@@ -135,13 +135,13 @@ def calculate_move(message):
             for col in valid_locations:
                 row = get_next_open_row(board, col)
                 temp_board = [row.copy() for row in board]
-                temp_board[row][col] = AI_PIECE
-                _, new_score = minimax(temp_board, depth - 1, alpha, beta, False)
+                temp_board[row][col] = AIpiece
+                i, new_score = minimax(temp_board, depth - 1, a, b, False)
                 if new_score > value:
                     value = new_score
                     best_col = col
-                alpha = max(alpha, value)
-                if alpha >= beta:
+                a = max(a, value)
+                if a >= b:
                     break
             return best_col, value
 
@@ -151,17 +151,17 @@ def calculate_move(message):
             for col in valid_locations:
                 row = get_next_open_row(board, col)
                 temp_board = [row.copy() for row in board]
-                temp_board[row][col] = PLAYER_PIECE
-                _, new_score = minimax(temp_board, depth - 1, alpha, beta, True)
+                temp_board[row][col] = playerPiece
+                i, new_score = minimax(temp_board, depth - 1, a, b, True)
                 if new_score < value:
                     value = new_score
                     best_col = col
-                beta = min(beta, value)
-                if alpha >= beta:
+                b = min(b, value)
+                if a >= b:
                     break
             return best_col, value
 
-    best_col, _ = minimax(board, 5, -math.inf, math.inf, True)
+    best_col, j = minimax(board, 5, -math.inf, math.inf, True)
     return best_col
 
 def get_next_open_row(board, col):
@@ -170,7 +170,7 @@ def get_next_open_row(board, col):
         if board[r][col] == 0:
             return r
 async def gameloop(socket, created):
-    board = [[0] * COLS for _ in range(ROWS)]
+    board = [[0] * COLS for w in range(ROWS)]
     active = True
     while active:
         message = (await socket.recv()).split(':')
@@ -179,16 +179,16 @@ async def gameloop(socket, created):
                 if created:
                     col = calculate_move(";".join([",".join(map(str, row)) for row in board]))
                     row = get_next_open_row(board, col)
-                    board[row][col] = AI_PIECE  # Update AI's move on the board
+                    board[row][col] = AIpiece  # Update AI's move on the board
                     await socket.send(f'PLAY:{col}')
             case 'OPPONENT':
                 opponent_col = int(message[1])
                 opponent_row = get_next_open_row(board, opponent_col)
-                board[opponent_row][opponent_col] = PLAYER_PIECE
+                board[opponent_row][opponent_col] = playerPiece
                 
                 col = calculate_move(";".join([",".join(map(str, row)) for row in board]))
                 row = get_next_open_row(board, col)
-                board[row][col] = AI_PIECE  # Update AI's move
+                board[row][col] = AIpiece  # Update AI's move
                 await socket.send(f'PLAY:{col}')
             case 'WIN' | 'LOSS' | 'DRAW' | 'TERMINATED':
                 print(message[0])
